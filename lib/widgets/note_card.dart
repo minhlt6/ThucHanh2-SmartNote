@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' as intl;
 import 'package:th2/models/note.dart';
 
 /// Widget hiển thị một thẻ ghi chú với giao diện bo góc, đổ bóng nhẹ.
@@ -9,9 +9,53 @@ class NoteCard extends StatelessWidget {
 
   const NoteCard({super.key, required this.note, this.onTap});
 
+  static String _buildThreeLinePreview({
+    required String text,
+    required TextStyle style,
+    required double maxWidth,
+    required TextDirection textDirection,
+  }) {
+    final normalized = text.trimRight();
+    if (normalized.isEmpty || maxWidth <= 0) return normalized;
+
+    final fullPainter = TextPainter(
+      text: TextSpan(text: normalized, style: style),
+      textDirection: textDirection,
+      maxLines: 3,
+    )..layout(maxWidth: maxWidth);
+
+    if (!fullPainter.didExceedMaxLines) {
+      return normalized;
+    }
+
+    const suffix = '...';
+    var low = 0;
+    var high = normalized.length;
+
+    while (low < high) {
+      final mid = (low + high + 1) ~/ 2;
+      final candidate = '${normalized.substring(0, mid).trimRight()}$suffix';
+
+      final candidatePainter = TextPainter(
+        text: TextSpan(text: candidate, style: style),
+        textDirection: textDirection,
+        maxLines: 3,
+      )..layout(maxWidth: maxWidth);
+
+      if (candidatePainter.didExceedMaxLines) {
+        high = mid - 1;
+      } else {
+        low = mid;
+      }
+    }
+
+    return '${normalized.substring(0, low).trimRight()}$suffix';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final date = DateFormat('dd/MM/yyyy HH:mm').format(note.updatedAt);
+    final date = intl.DateFormat('dd/MM/yyyy HH:mm').format(note.updatedAt);
+    final contentStyle = TextStyle(color: Colors.grey[700]);
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 3,
@@ -33,11 +77,22 @@ class NoteCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
-              Text(
-                note.content,
-                style: TextStyle(color: Colors.grey[700]),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final preview = _buildThreeLinePreview(
+                    text: note.content,
+                    style: contentStyle,
+                    maxWidth: constraints.maxWidth,
+                    textDirection: Directionality.of(context),
+                  );
+                  return Text(
+                    preview,
+                    style: contentStyle,
+                    maxLines: 3,
+                    softWrap: true,
+                    overflow: TextOverflow.clip,
+                  );
+                },
               ),
               const SizedBox(height: 12),
               Align(
